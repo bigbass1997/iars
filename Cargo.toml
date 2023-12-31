@@ -1,0 +1,13 @@
+[package]
+name = "iars"
+version = "0.1.0"
+edition = "2021"
+authors = ["Luke Stadem <bigbass1997.website@gmail.com>"]
+description = "A synchronous (blocking) client written purely in Rust, for interfacing with Internet Archive APIs."
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/bigbass1997/iars"
+keywords = ["api", "client", "mips3", "sync"]
+categories = ["command-line-utilities", "development-tools::build-utils", "hardware-support", "embedded"]
+
+[dependencies]
+ureq = "2.9"
