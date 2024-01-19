@@ -34,30 +34,16 @@
 //! service or Internet Archive. So performing multiple uploads/downloads at the same time will likely
 //! not yield any significant benefit.
 
-use std::string::ToString;
-use crate::headers::Header::{XAutoMakeBucket, XKeepOldVersion, XMeta, XQueueDerive, XSizeHint};
-use crate::headers::{Header, RequestHeaderExt};
+use crate::headers::Header;
 
 pub mod changes;
 pub mod headers;
+pub mod item;
 pub mod tasks;
 
-pub const DEFAULT_USER_AGENT: &'static str = "iars <https://crates.io/crates/iars>";
+pub use item::{Item, ItemError};
 
-#[derive(Debug)]
-pub enum ItemError {
-    Ureq(ureq::Error),
-    Forbidden(ureq::Response),
-    InvalidIdentifier(String),
-}
-impl From<ureq::Error> for ItemError {
-    fn from(value: ureq::Error) -> Self {
-        match value {
-            ureq::Error::Status(403, resp) => Self::Forbidden(resp),
-            _ => Self::Ureq(value)
-        }
-    }
-}
+pub const DEFAULT_USER_AGENT: &'static str = "iars <https://crates.io/crates/iars>";
 
 
 /// Container for the access and secret keys required for some actions in the Internet Archive API.
@@ -107,150 +93,6 @@ impl From<&Credentials> for Header {
     }
 }
 
-/// Represents a particular item on the Internet Archive.
-/// 
-/// An item could be a book, a song, a movie, a file or set of files, etc. Each item uses an identifier
-/// which is unique across the entire Internet Archive. Identifiers must follow a set of rules to
-/// ensure they are valid. [`validate_identifier`] can be used to determine if an identifier is valid.
-/// 
-/// Some actions involving an item may require authentication by making use of an access key and a
-/// secret key. Users can get these API keys from <https://archive.org/account/s3.php> and are provided
-/// to this representation using the [`Credentials`] type.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Item {
-    identifier: String,
-    credentials: Option<Credentials>,
-    keep_old_versions: bool,
-    auto_make_bucket: bool,
-    use_test_collection: bool,
-    useragent: String,
-}
-impl Item {
-    /// Creates a new reference to an item on the Internet Archive.
-    /// 
-    /// Item identifiers _should_ be validated by the caller using [`validate_identifier`]. While
-    /// creation of the [`Item`] object will not fail, queries making use of an invalid identifier
-    /// will return a [`ItemError::InvalidIdentifier`] error.
-    /// 
-    /// Some actions on this item may require authentication. [`Credentials`] can be provided using
-    /// [`Self::with_credentials`].
-    pub fn new(ident: &str) -> Self {
-        Self {
-            identifier: ident.to_string(),
-            credentials: None,
-            keep_old_versions: false,
-            auto_make_bucket: true,
-            use_test_collection: false,
-            useragent: DEFAULT_USER_AGENT.to_string(),
-        }
-    }
-    
-    /// Provide authentication credentials to be used with all queries.
-    /// 
-    /// Many operations on the Internet Archive, such as uploading or deleting files, require
-    /// authentication using both an access key and a secret key. These keys can be found
-    /// [here](https://archive.org/account/s3.php).
-    /// 
-    /// Operations where valid keys are not provided, will result in a 403 Forbidden error.
-    pub fn with_credentials(mut self, credentials: Option<Credentials>) -> Self {
-        self.credentials = credentials;
-        
-        self
-    }
-    
-    /// Configures the User-Agent string provided in all API queries.
-    /// 
-    /// If `None` or if the string is empty, a [default][`DEFAULT_USER_AGENT`] will be used.
-    /// 
-    /// A User-Agent string may also be provided. If no user agent is given, or the string is empty,
-    /// a [default][`DEFAULT_USER_AGENT`] will be used.
-    pub fn with_useragent(mut self, useragent: Option<String>) -> Self {
-        if useragent.is_none() || useragent.as_ref().unwrap().is_empty() {
-            self.useragent = DEFAULT_USER_AGENT.to_string();
-        } else {
-            self.useragent = useragent.unwrap();
-        }
-        
-        self
-    }
-    
-    /// Configures whether or not file creation or deletion operations should backup the old version
-    /// of the file.
-    /// 
-    /// This is false (disabled) by default.
-    /// 
-    /// The old version of the file will be moved by the Internet Archive into `history/files/{filename}.~N~`.
-    pub fn with_keep_old_versions(mut self, keep_old_versions: bool) -> Self {
-        self.keep_old_versions = keep_old_versions;
-        
-        self
-    }
-    
-    /// Configures whether or not the Internet Archive item will be created automatically when uploading
-    /// a file, if the item doesn't already exist.
-    /// 
-    /// This is true (enabled) by default.
-    pub fn with_auto_make(mut self, auto_make_bucket: bool) -> Self {
-        self.auto_make_bucket = auto_make_bucket;
-        
-        self
-    }
-    
-    /// Uploads a file to this item.
-    /// 
-    /// Normally, file uploads will cause the Internet Archive to queue a "derive" process on the item.
-    /// This process produces secondary files to improve usability of the uploaded data. Setting the
-    /// `derive` argument to `false` will prevent this process.
-    /// 
-    /// Metadata can be provided as a slice of (key, value) tuples for newly created items.
-    /// **If the Internet Archive item already exists or is not automatically created upon upload,
-    /// this metadata will be silently discarded.**
-    /// 
-    /// The `filepath` denotes both the filename and the path within the item where the file should
-    /// be stored.
-    /// 
-    /// Uploaded files may not be immediated available on Internet Archive, depending on how busy
-    /// the site is when the file is uploaded.
-    /// 
-    /// # Example
-    /// ```rust
-    /// use iars::{Credentials, Item};
-    ///
-    /// let item = Item::new("test_item")
-    ///     .with_credentials(Some(Credentials::new("abcdefghijklmnop", "1234567890123456")));
-    /// 
-    /// item.upload_file(true, &[("collection", "test_collection")], "a_directory/myfile.txt", "Hello World!".as_bytes())?;
-    /// ```
-    /// If successful, file will be viewable at `https://archive.org/download/test_item/a_directory/myfile.txt`.
-    /// 
-    /// If this upload creates a new Internet Archive item, then the metadata `<collection>test_collection</collection>`
-    /// will be included in the item's metadata. 
-    pub fn upload_file(&self, derive: bool, initial_meta: &[(&str, &str)], filepath: &str, data: &[u8]) -> Result<ureq::Response, ItemError> {
-        let mut req = ureq::put(&format!("https://s3.us.archive.org/{}/{filepath}", self.identifier))
-            .set("user-agent", &self.useragent)
-            .set_header(XKeepOldVersion(self.keep_old_versions))
-            .set_header(XAutoMakeBucket(self.auto_make_bucket))
-            .set_header(XQueueDerive(derive))
-            .set_header(XSizeHint(data.len()));
-        
-        for (key, val) in initial_meta {
-            req = req.set_header(XMeta { name: key.to_string(), value: val.to_string() });
-        }
-        
-        if let Some(creds) = self.credentials.as_ref() {
-            req = req.set_header(creds.into());
-        }
-        
-        println!("REQUEST:");
-        for header in req.header_names() {
-            if let Some(value) = req.header(&header) {
-                println!("    {header}: {value}");
-            }
-        }
-        
-        Ok(req.send_bytes(data)?)
-    }
-}
 
 /// Checks if the identifier string is valid.
 /// 

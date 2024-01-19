@@ -11,3 +11,5 @@ categories = ["command-line-utilities", "development-tools::build-utils", "hardw
 
 [dependencies]
 ureq = "2.9"
+serde = { version = "1", features = ["derive"] }
+serde-xml-rs = "0.6"
