@@ -98,20 +98,21 @@ impl Item {
         }
     }
     
-    /// Provide authentication credentials to be used with all queries.
+    /// Provide authentication credentials to be used with all queries for this item.
     /// 
     /// Many operations on the Internet Archive, such as uploading or deleting files, require
     /// authentication using both an access key and a secret key. These keys can be found
     /// [here](https://archive.org/account/s3.php).
     /// 
-    /// Operations where valid keys are not provided, will result in a 403 Forbidden error.
+    /// Operations that require authentication but where none are provided, or when the keys are invalid,
+    /// will result in a 403 Forbidden error.
     pub fn with_credentials(mut self, credentials: Option<Credentials>) -> Self {
         self.credentials = credentials;
         
         self
     }
     
-    /// Configures the User-Agent string provided in all API queries.
+    /// Configures the User-Agent string provided in all API queries for this item.
     /// 
     /// If `None` or if the string is empty, a [default][`DEFAULT_USER_AGENT`] will be used.
     /// 
@@ -159,8 +160,8 @@ impl Item {
     /// **If the Internet Archive item already exists or is not [automatically created][`Item::with_auto_make`] upon upload,
     /// this metadata will be silently discarded.**
     /// 
-    /// Uploaded files may not be immediately available on Internet Archive, depending on how busy
-    /// the site is when the file is uploaded.
+    /// Uploaded files may not be immediately available on Internet Archive. Use the [tasks][`crate::tasks`] module
+    /// to check the status of the upload.
     /// 
     /// # Data Transfer
     /// The data is read using any [reader][`Read`] implementation. However, the `size` (number of

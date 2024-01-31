@@ -2,13 +2,13 @@
 //! 
 //! # API List
 //! |Supported|Name|Endpoint|
-//! |:-------:|----|--------|
-//! | Partial | IAS3 (S3-like) ([API docs](https://archive.org/developers/ias3.html)) |`https://s3.us.archive.org/{identifier}`|
-//! | No | Item Metadata ([API docs](https://archive.org/developers/metadata.html)) |`https://archive.org/metadata/{identifier}`|
-//! | No | Item Views ([API docs](https://archive.org/developers/views_api.html)) |`https://be-api.us.archive.org/views/v1/short/{identifier}[,...]`|
-//! | No | Item Reviews ([API docs](https://archive.org/developers/reviews.html)) |`https://archive.org/services/reviews.php`|
-//! | No | Item Changes ([API docs](https://archive.org/developers/changes.html)) |`https://be-api.us.archive.org/changes/v1`|
-//! | No | Item Tasks ([API docs](https://archive.org/developers/tasks.html)) |`https://archive.org/services/tasks.php`|
+//! |:-------:|:--:|--------|
+//! | Yes | IAS3 (S3-like) ([API docs](https://archive.org/developers/ias3.html)) |`https://s3.us.archive.org/{identifier}`|
+//! | No | Metadata ([API docs](https://archive.org/developers/metadata.html)) |`https://archive.org/metadata/{identifier}`|
+//! | No | Views ([API docs](https://archive.org/developers/views_api.html)) |`https://be-api.us.archive.org/views/v1/short/{identifier}[,...]`|
+//! | No | Reviews ([API docs](https://archive.org/developers/reviews.html)) |`https://archive.org/services/reviews.php`|
+//! | No | Changes ([API docs](https://archive.org/developers/changes.html)) |`https://be-api.us.archive.org/changes/v1`|
+//! | Partial | Tasks ([API docs](https://archive.org/developers/tasks.html)) |`https://archive.org/services/tasks.php`|
 //! 
 //! The IAS3, Metadata, Views, and Reviews APIs are accessible through the [`Item`] data type. The
 //! remaining APIs are accessed via their respective module ([`changes`], and [`tasks`]).
@@ -47,6 +47,8 @@ pub const DEFAULT_USER_AGENT: &'static str = "iars <https://crates.io/crates/iar
 
 
 /// Container for the access and secret keys required for some actions in the Internet Archive API.
+/// 
+/// Users can get these API keys from <https://archive.org/account/s3.php>.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Credentials {
     pub access: String,

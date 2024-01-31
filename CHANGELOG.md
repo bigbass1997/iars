@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - Added: `Item::list` retrieves a list of files in an item
 - Added: `Item::download_file`
 - Added: Expanded `Item` documentation, including details about potential errors
+- Added: Searching for tasks based on specified criteria
+- Added: Retrieval of a task's log
 
 ## [0.1.0] - 2023-12-30
 - Initial release
