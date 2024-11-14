@@ -115,9 +115,6 @@ impl Item {
     /// Configures the User-Agent string provided in all API queries for this item.
     /// 
     /// If `None` or if the string is empty, a [default][`DEFAULT_USER_AGENT`] will be used.
-    /// 
-    /// A User-Agent string may also be provided. If no user agent is given, or the string is empty,
-    /// a [default][`DEFAULT_USER_AGENT`] will be used.
     pub fn with_useragent(mut self, useragent: Option<String>) -> Self {
         if useragent.is_none() || useragent.as_ref().unwrap().is_empty() {
             self.useragent = DEFAULT_USER_AGENT.to_string();

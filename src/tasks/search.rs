@@ -34,10 +34,10 @@ pub enum Filter {
     /// * `ia*.us.*`
     Server(String),
     
-    /// The [command][`Command`] that the task has or will have performed.
+    /// The name of the [command][`Command`] that the task has or will have performed.
     /// 
-    /// Wildcards (`*` or `%`) can be used in this filter via [`Command::Custom`].
-    Command(Command),
+    /// Wildcards (`*` or `%`) can be used in this filter.
+    Command(String),
     
     //TODO: Args(String), // this seems to relate to the 'args' field used with each 'cmd' script, but it's not clear how it should be formatted
     
@@ -68,7 +68,7 @@ pub enum Filter {
 }
 impl From<Command> for Filter {
     fn from(value: Command) -> Self {
-        Self::Command(value)
+        Self::Command(value.name().to_string())
     }
 }
 impl From<Status> for Filter {
@@ -123,9 +123,6 @@ impl Request {
     /// Configures the User-Agent string provided in this request.
     /// 
     /// If `None` or if the string is empty, a [default][`DEFAULT_USER_AGENT`] will be used.
-    /// 
-    /// A User-Agent string may also be provided. If no user agent is given, or the string is empty,
-    /// a [default][`DEFAULT_USER_AGENT`] will be used.
     pub fn with_useragent(mut self, useragent: Option<String>) -> Self {
         if useragent.is_none() || useragent.as_ref().unwrap().is_empty() {
             self.useragent = DEFAULT_USER_AGENT.to_string();
@@ -154,7 +151,7 @@ impl Request {
         self
     }
     
-    /// Sets the maximum number of tasks returned by each request [call whatever][`crate::tasks::search::Request::call`].
+    /// Sets the maximum number of tasks returned by each request [call][`crate::tasks::search::Request::call`].
     /// 
     /// This number is the combined total between both the catalog and history categories.
     /// 
@@ -322,7 +319,7 @@ pub struct CatalogEntry {
     pub cmd: String,
     pub identifier: String,
     pub priority: isize,
-    pub server: String,
+    pub server: Option<String>,
     pub status: Status,
     pub submitter: String,
     #[serde(rename = "submittime")]
