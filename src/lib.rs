@@ -13,6 +13,16 @@
 //! The IAS3, Metadata, Views, and Reviews APIs are accessible through the [`Item`] data type. The
 //! remaining APIs are accessed via their respective module ([`changes`], and [`tasks`]).
 //! 
+//! # Authentication
+//! Generally, any operations that modify or upload files to the Internet Archive will require authentication.
+//! Access to hidden archive items will also require that you are the owner of the item.
+//! 
+//! Cookies are technically accepted by the Internet Archive for authentication, however they are intended
+//! only for use in a browser environment. As this crate is intended for programmatic access of their APIs,
+//! only key authentication is available.
+//! 
+//! To acquire your own S3-like keys, log into <https://archive.org/> and then proceed to the [API Key page](https://archive.org/account/s3.php).
+//! 
 //! # S3-like API
 //! Also refered to the `ias3`, this API is responsible for providing read and write access to the
 //! files that make up an item on the Internet Archive. It is refered to as S3-like because each item
@@ -24,15 +34,14 @@
 //! and includes numerous custom HTTP headers which affect the behavior of each request.
 //! 
 //! # Why not async?
-//! Using async often severely increases the number of dependencies required to use a crate, and
-//! increases the complexity of its development and usage.
+//! Using async often severely increases the number of dependencies required to use a crate, while
+//! simultaneously increasing the complexity of its development and usage.
 //! 
 //! For scenarios involving many IO or networking requests, such as web servers, async is definitely
-//! useful in maximizing performance and throughput. Making use of the Internet Archive's APIs however,
-//! should not require many simutaneous connections. Plus, throughput for expensive requests, such as
-//! uploading/downloading large files, will be cumulatively limited by either the user's internet
-//! service or Internet Archive. So performing multiple uploads/downloads at the same time will likely
-//! not yield any significant benefit.
+//! useful in maximizing performance. However, using the Internet Archive's APIs as a client is unlikely
+//! to benefit from async.
+//! 
+//! As such, all HTTP requests are performed using [ureq] which subscribes to [a similar mindset][ureq#blocking-io-for-simplicity].
 
 use crate::headers::Header;
 
@@ -43,10 +52,11 @@ pub mod tasks;
 
 pub use item::{Item, ItemError};
 
+/// `User-Agent` string used by default for all API requests.
 pub const DEFAULT_USER_AGENT: &'static str = "iars <https://crates.io/crates/iars>";
 
 
-/// Container for the access and secret keys required for some actions in the Internet Archive API.
+/// Container for authentication keys required by portions of the Internet Archive API.
 /// 
 /// Users can get these API keys from <https://archive.org/account/s3.php>.
 #[derive(Debug, Clone, PartialEq)]

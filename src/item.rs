@@ -1,3 +1,16 @@
+//! Access and creation of archive items and metadata.
+//! 
+//! On the Internet Archive, each individual "archive" is known as an item, identified using a unique
+//! [string][crate::validate_identifier]. Archive items can contain one or more files and directories,
+//! as well as associated metadata.
+//! 
+//! In `iars` an [`Item`] represents one of these archives. After instantiating an `Item`, the caller
+//! can perform operations relevant to that particular item, such as retrieving metadata or uploading
+//! new files.
+//! 
+//! Creating a new archive on IA is as simple as creating an `Item` using an unused identifier, and
+//! [uploading a file][Item::upload_file] to it.
+
 use std::io::{Read, Write};
 use std::string::ToString;
 use serde::Deserialize;
@@ -21,7 +34,7 @@ pub enum ItemError {
     /// This is usually caused by not having valid [authentication][`Item`].
     Forbidden(ureq::Response),
     
-    /// Item identifier is invalid according to [`crate::validate_identifier`].
+    /// Item identifier is invalid according to [`validate_identifier`].
     InvalidIdentifier(String),
 }
 impl From<std::io::Error> for ItemError {
@@ -149,16 +162,20 @@ impl Item {
     
     /// Uploads a file to this item.
     /// 
+    /// After uploads are completed, the files may not be immediately available on Internet Archive.
+    /// Use the [tasks][`crate::tasks`] module to check the status of the uploaded files.
+    /// 
+    /// # Derivation
     /// Normally, file uploads will cause the Internet Archive to queue a "derive" process on the item.
     /// This process produces secondary files to improve usability of the uploaded data. Setting the
     /// `derive` argument to `false` will prevent this process.
     /// 
-    /// Metadata can be provided as a slice of (key, value) tuples for newly created items.
-    /// **If the Internet Archive item already exists or is not [automatically created][`Item::with_auto_make`] upon upload,
+    /// # Metadata
+    /// Item metadata can be provided in key-value pairs. **If the Internet
+    /// Archive item already exists, or is not [automatically created][`Item::with_auto_make`],
     /// this metadata will be silently discarded.**
     /// 
-    /// Uploaded files may not be immediately available on Internet Archive. Use the [tasks][`crate::tasks`] module
-    /// to check the status of the upload.
+    /// Use [TODO] to add metadata to existing items.
     /// 
     /// # Data Transfer
     /// The data is read using any [reader][`Read`] implementation. However, the `size` (number of
@@ -181,8 +198,8 @@ impl Item {
     /// item.upload_file(true, &[("foo", "bar")], "a_directory/myfile.txt", data, data.len())?;
     /// # Ok::<(), iars::ItemError>(())
     /// ```
-    /// If successful, file will be viewable at `https://archive.org/download/test_item/a_directory/myfile.txt`,
-    /// and if item didn't already exist, the item's metadata will include `foo: "bar"`.
+    /// If successful, the file will be viewable at `https://archive.org/download/test_item/a_directory/myfile.txt`,
+    /// and if the archive item didn't already exist, its metadata will include `foo: "bar"`.
     /// 
     /// # Errors
     /// This method immediately returns [`ItemError::InvalidIdentifier`] if [self][`Item`] was
@@ -306,4 +323,6 @@ impl Item {
         
         Ok(std::io::copy(&mut resp.into_reader(), &mut writer)?)
     }
+    
+    
 }
