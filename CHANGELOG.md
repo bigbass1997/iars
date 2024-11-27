@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 - Changed: Moved `Item` into separate module
+- Changed: Moved identifier validation to `Item::new`
 - Added: Size argument to `Item::upload_file`
 - Added: `Item::list` retrieves a list of files in an item
 - Added: `Item::download_file`

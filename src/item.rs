@@ -100,15 +100,24 @@ impl Item {
     /// 
     /// Some actions on this item may require authentication. [`Credentials`] can be provided using
     /// [`Self::with_credentials`].
-    pub fn new(ident: &str) -> Self {
-        Self {
-            identifier: ident.to_string(),
+    /// 
+    /// # Errors
+    /// If [`validate_identifier`] determines the provided identifier is invalid, an
+    /// [`ItemError::InvalidIdentifier`] error will be returned.
+    pub fn new(ident: &str) -> Result<Self, ItemError> {
+        let identifier = ident.to_string();
+        if !validate_identifier(&identifier) {
+            return Err(ItemError::InvalidIdentifier(identifier))
+        }
+        
+        Ok(Self {
+            identifier,
             credentials: None,
             keep_old_versions: false,
             auto_make_bucket: true,
             use_test_collection: false,
             useragent: DEFAULT_USER_AGENT.to_string(),
-        }
+        })
     }
     
     /// Provide authentication credentials to be used with all queries for this item.
@@ -202,15 +211,8 @@ impl Item {
     /// and if the archive item didn't already exist, its metadata will include `foo: "bar"`.
     /// 
     /// # Errors
-    /// This method immediately returns [`ItemError::InvalidIdentifier`] if [self][`Item`] was
-    /// [created][`Item::new`] using an invalid identifier.
-    /// 
-    /// Otherwise, this may also return [`ItemError::Ureq`] if a [`ureq::Error`] is encountered while uploading.
+    /// Possibly returns [`ItemError::Ureq`] if a [`ureq::Error`] is encountered while uploading.
     pub fn upload_file(&self, derive: bool, initial_meta: &[(&str, &str)], filepath: &str, reader: impl Read, size: usize) -> Result<ureq::Response, ItemError> {
-        if !validate_identifier(&self.identifier) {
-            return Err(ItemError::InvalidIdentifier(self.identifier.clone()));
-        }
-        
         let mut req = ureq::put(&format!("https://s3.us.archive.org/{}/{filepath}", self.identifier))
             .set("user-agent", &self.useragent)
             .set_header(XKeepOldVersion(self.keep_old_versions))
@@ -233,10 +235,7 @@ impl Item {
     /// Retrieves a list of all files contained in this item.
     /// 
     /// # Errors
-    /// This method immediately returns [`ItemError::InvalidIdentifier`] if [self][`Item`] was
-    /// [created][`Item::new`] using an invalid identifier.
-    /// 
-    /// An [`ItemError::Ureq`] will be returned if a [`ureq::Error`] is encountered while downloading
+    /// Possibly returns [`ItemError::Ureq`] if a [`ureq::Error`] is encountered while downloading
     /// the list of files (an XML string).
     /// 
     /// If the query succeeds but the response cannot be parsed, an [`ItemError::XmlParseFailed`]
@@ -246,10 +245,6 @@ impl Item {
     /// Upon requesting the file list, if the `Content-Length` of the response is larger than 1 GiB,
     /// this method will panic. Please open a Github issue if this is a concern for your use-case.
     pub fn list(&self) -> Result<Vec<FileEntry>, ItemError> {
-        if !validate_identifier(&self.identifier) {
-            return Err(ItemError::InvalidIdentifier(self.identifier.clone()));
-        }
-        
         let mut req = ureq::get(&format!("https://s3.us.archive.org/{}", self.identifier))
             .set("user-agent", &self.useragent);
         
@@ -288,10 +283,7 @@ impl Item {
     /// On success, the number of bytes written (size of the file) is returned.
     /// 
     /// # Errors
-    /// This method immediately returns [`ItemError::InvalidIdentifier`] if [self][`Item`] was
-    /// [created][`Item::new`] using an invalid identifier.
-    /// 
-    /// This may also return [`ItemError::Ureq`] if a [`ureq::Error`] is encountered while downloading.
+    /// Possibly returns [`ItemError::Ureq`] if a [`ureq::Error`] is encountered while downloading.
     /// 
     /// If any [I/O errors][`std::io::Error`] occur while transfering data into the `writer`,
     /// an [`ItemError::Io`] is returned.
@@ -308,10 +300,6 @@ impl Item {
     /// # Ok::<(), iars::ItemError>(())
     /// ```
     pub fn download_file(&self, filepath: &str, mut writer: impl Write) -> Result<u64, ItemError> {
-        if !validate_identifier(&self.identifier) {
-            return Err(ItemError::InvalidIdentifier(self.identifier.clone()));
-        }
-        
         let mut req = ureq::get(&format!("https://archive.org/download/{}/{filepath}", self.identifier))
             .set("user-agent", &self.useragent);
         
