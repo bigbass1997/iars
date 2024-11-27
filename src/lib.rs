@@ -4,7 +4,7 @@
 //! |Supported|Name|Endpoint|
 //! |:-------:|:--:|--------|
 //! | Yes | IAS3 (S3-like) ([API docs](https://archive.org/developers/ias3.html)) |`https://s3.us.archive.org/{identifier}`|
-//! | No | Metadata ([API docs](https://archive.org/developers/metadata.html)) |`https://archive.org/metadata/{identifier}`|
+//! | Read-only | Metadata ([API docs](https://archive.org/developers/metadata.html)) |`https://archive.org/metadata/{identifier}`|
 //! | No | Views ([API docs](https://archive.org/developers/views_api.html)) |`https://be-api.us.archive.org/views/v1/short/{identifier}[,...]`|
 //! | No | Reviews ([API docs](https://archive.org/developers/reviews.html)) |`https://archive.org/services/reviews.php`|
 //! | No | Changes ([API docs](https://archive.org/developers/changes.html)) |`https://be-api.us.archive.org/changes/v1`|

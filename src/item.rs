@@ -11,6 +11,7 @@
 //! Creating a new archive on IA is as simple as creating an `Item` using an unused identifier, and
 //! [uploading a file][Item::upload_file] to it.
 
+use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::string::ToString;
 use serde::Deserialize;
@@ -56,7 +57,7 @@ impl From<serde_xml_rs::Error> for ItemError {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 struct ListBucketResult {
     contents: Vec<FileEntry>
@@ -70,6 +71,119 @@ pub struct FileEntry {
     pub last_modified: String,
     #[serde(rename = "Size")]
     pub len: usize,
+}
+
+/// Contains the metadata for an item and additional meta-metadata.
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+pub struct MetadataResponse {
+    /// UNIX epoch timestamp of when this [metadata record][`MetadataRecord`] was created.
+    /// 
+    /// To determine the item's creation time, check for `"addeddate"` in the [`field@metadata`] field instead.
+    created: isize,
+    
+    /// Pseudo-random value used internally by the Metadata API.
+    uniq: isize,
+    
+    /// URL of the primary data server the item is stored on.
+    /// 
+    /// # Caution
+    /// The item may be moved to another server at any time. Constructing URLs using this
+    /// value is **not recommended**.
+    /// 
+    /// For download URLs, use `https://archive.org/download/{identifier}/{relative_file_path}` instead.
+    d1: String,
+    
+    /// URL of the secondary (backup) data server the item is stored on. May be `None` or empty in rare cases.
+    /// 
+    /// # Caution
+    /// The item may be moved to another server at any time. Constructing URLs using this
+    /// value is **not recommended**.
+    /// 
+    /// For download URLs, use `https://archive.org/download/{identifier}/{relative_file_path}` instead.
+    d2: Option<String>,
+    
+    /// Absolute path of the item located on both data nodes.
+    /// 
+    /// # Caution
+    /// The item may be moved to another location at any time. Constructing URLs using this
+    /// value is **not recommended**.
+    /// 
+    /// For download URLs, use `https://archive.org/download/{identifier}/{relative_file_path}` instead.
+    dir: String,
+    
+    /// Preferred server (domain only) for reading the item's contents.
+    server: String,
+    
+    /// List of data servers that are currently available for accessing the item's contents.
+    workable_servers: Vec<String>,
+    
+    /// True if one or both of the primary and backup servers are unavailable/inaccessible.
+    #[serde(default)]
+    servers_unavailable: bool,
+    
+    /// The metadata of the item itself.
+    /// 
+    /// This data is also stored in the `<identifier>_meta.xml` file within the item. Keep in mind,
+    /// recent metadata changes may not have yet been written to disk, but will be available
+    /// in this field.
+    /// 
+    /// Metadata is usually made up of string key-value pairs, but some keys may correspond to a
+    /// list of values.
+    metadata: HashMap<String, serde_json::Value>,
+    
+    /// Total size (bytes) of all files within the item.
+    item_size: usize,
+    
+    /// UNIX epoch timestamp of when the item was last modified.
+    item_last_updated: isize,
+    
+    /// Total number of files in the item.
+    files_count: usize,
+    
+    /// The metadata of each file within the item.
+    /// 
+    /// This data is also stored in the `<identifier>_files.xml` file. Keep in mind,
+    /// recent metadata changes may not have yet been written to disk, but will be available
+    /// in this field.
+    /// 
+    /// # Common Keys
+    /// * `name`: Filename
+    /// * `crc32`: CRC32 checksum
+    /// * `md5`: MD5 checksum
+    /// * `sha1`: SHA1 checksum
+    /// * `format`: Textual name of the file's format (e.g. "MPEG4", "Thumbnail")
+    /// * `mtime`: UNIX epoch timestamp of when the file was last modified
+    /// * `size`: Size of the file in bytes
+    /// * `source`: Where the file came from (e.g. "original", "derivative")
+    files: Vec<HashMap<String, String>>,
+    
+    /// True if one or more catalog [tasks][`crate::tasks`] are queued or running.
+    #[serde(default)]
+    pending_tasks: bool,
+    
+    /// True if one or more catalog [tasks][`crate::tasks`] were halted due to an error.
+    #[serde(default)]
+    has_redrow: bool,
+    
+    //TODO: tasks: ?, // List of queued tasks https://archive.org/developers/md-record.html#catalog-fields
+    
+    //TODO: reviews: ?, // List of reviews given by IA users https://archive.org/developers/md-record.html#reviews-field
+    
+    /// True if the item is darked (hidden) and unavailable.
+    #[serde(default)]
+    is_dark: bool,
+    
+    /// True if the item is not ready for downloading yet.
+    #[serde(default)]
+    nodownload: bool,
+    
+    /// True if the item is a collection.
+    #[serde(default)]
+    is_collection: bool
+    
+    //TODO: simplelists: SimpleLists, // Holds the SimpleLists structure for the item https://archive.org/developers/simplelists.html
+    
+    //TODO: User JSON fields https://archive.org/developers/md-record.html#user-json-fields
 }
 
 /// Represents a particular item on the Internet Archive.
@@ -93,10 +207,6 @@ pub struct Item {
 }
 impl Item {
     /// Creates a new reference to an item on the Internet Archive.
-    /// 
-    /// Item identifiers _should_ be validated by the caller using [`validate_identifier`]. While
-    /// creation of the [`Item`] object will not fail, queries making use of an invalid identifier
-    /// will return an [`ItemError::InvalidIdentifier`] error.
     /// 
     /// Some actions on this item may require authentication. [`Credentials`] can be provided using
     /// [`Self::with_credentials`].
@@ -312,5 +422,31 @@ impl Item {
         Ok(std::io::copy(&mut resp.into_reader(), &mut writer)?)
     }
     
-    
+    /// Retrieves the item's metadata.
+    /// 
+    /// Any recent changes submitted via the Metadata API will be present in the response, even if
+    /// the changes have not been written to disk yet.
+    pub fn metadata(&self) -> Result<MetadataResponse, ItemError> {
+        let mut req = ureq::get(&format!("https://archive.org/metadata/{}", self.identifier))
+            .set("user-agent", &self.useragent);
+        
+        if let Some(creds) = self.credentials.as_ref() {
+            req = req.set_header(creds.into());
+        }
+        
+        let resp = req.call()?;
+        
+        const MAX_LEN: usize = 1 * 1024 * 1024 * 1024; // 1 GiB
+        let len: usize = resp
+            .header("content-length")
+            .unwrap_or("")
+            .parse()
+            .unwrap_or(MAX_LEN);
+        
+        if len > MAX_LEN {
+            todo!("Response body is over size limit of {MAX_LEN} bytes!");
+        }
+        
+        Ok(resp.into_json()?)
+    }
 }
