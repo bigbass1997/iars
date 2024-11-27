@@ -4,7 +4,7 @@
 [![Documentation](https://img.shields.io/docsrs/iars?style=flat-square)](https://docs.rs/iars)
 
 ### Description
-This is a synchronous (blocking) client written purely in Rust, for interfacing with [Internet Archive](https://archive.org/) APIs.
+`iars` is a synchronous (blocking) client written purely in Rust, for interfacing with [Internet Archive](https://archive.org/) APIs.
 
 Refer to the [docs](https://docs.rs/iars) for which APIs are currently supported.
 
